@@ -50,7 +50,7 @@ Using VS Code Live Server:
 
 ---
 
-###📁 File Structure
+### 📁 File Structure
 ```graphql
 waves/
 │
@@ -59,22 +59,22 @@ waves/
 ├─ style.css (optional) # External CSS if needed
 └─ README.md           # Project documentation
 ```
-###🛠 Next Steps / Future Improvements
+### 🛠 Next Steps / Future Improvements
 - Convert 2D canvas to 3D waves using Three.js
 - Add particle effects synced to audio
 - Add color gradients and glow for more dynamic visuals
 - Deploy live demo with GitHub Pages or Netlify
   
-###💡 Tips
+### 💡 Tips
 - Test microphone functionality in Chrome or Edge for best compatibility
 - Make sure your browser has permission to access the microphone
 - Adjust analyser.fftSize for smoother or more detailed waveforms
 
-###📄 License
+### 📄 License
 - This project is open-source under the MIT License.
 - Feel free to copy, modify, and share.
 
-🚀 Acknowledgements
+### 🚀 Acknowledgements
 - Inspired by dynamic music visualizations
 - Audio input uses the Web Audio API
 - Created with assistance from ChatGPT
