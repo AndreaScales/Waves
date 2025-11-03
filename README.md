@@ -31,8 +31,8 @@ cd waves
 ### 2️⃣ Open Project in Browser
 
 Since this is a frontend JavaScript project, you can open index.html in your browser:
-Option 1: Open index.html directly (works for testing)
-Option 2: Use a local server for full compatibility:
+- Option 1: Open index.html directly (works for testing)
+- Option 2: Use a local server for full compatibility:
 Using VS Code Live Server:
 1. Install the Live Server extension in VS Code
 2. Right-click index.html → Open with Live Server
