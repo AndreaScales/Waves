@@ -1,0 +1,153 @@
+name: Project Automation
+
+on:
+  issues:
+    types: [opened, reopened, closed, labeled, unlabeled]
+
+jobs:
+  automate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Automate Project + Labels + Movement
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const org = context.repo.owner;
+            const repo = context.repo.repo;
+            const projectNumber = 1; // Update if needed
+
+            // --- 1️⃣ AUTO-LABEL BASED ON TITLE ---
+            const title = issue.title.toLowerCase();
+            const labels = [];
+            if (title.includes("ui") || title.includes("design")) labels.push("🎨 UI / Design");
+            if (title.includes("audio") || title.includes("sound")) labels.push("🎧 Audio");
+            if (title.includes("wave") || title.includes("shader")) labels.push("🌊 3D / Visuals");
+            if (title.includes("bug") || title.includes("fix")) labels.push("🐞 Bug");
+            if (title.includes("deploy") || title.includes("launch")) labels.push("🚀 Deployment");
+            if (title.includes("readme") || title.includes("docs")) labels.push("📝 Documentation");
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: org,
+                repo,
+                issue_number: issue.number,
+                labels
+              });
+            }
+
+            // --- 2️⃣ ADD ISSUE TO PROJECT AUTOMATICALLY ---
+            if (context.payload.action === 'opened') {
+              const projects = await github.graphql(`
+                query($org: String!) {
+                  organization(login: $org) {
+                    projectsV2(first: 10) {
+                      nodes { id title number }
+                    }
+                  }
+                }
+              `, { org });
+
+              const project = projects.organization.projectsV2.nodes.find(p => p.number === projectNumber);
+              if (project) {
+                await github.graphql(`
+                  mutation($projectId: ID!, $issueId: ID!) {
+                    addProjectV2ItemById(input: {projectId: $projectId, contentId: $issueId}) {
+                      item { id }
+                    }
+                  }
+                `, {
+                  projectId: project.id,
+                  issueId: issue.node_id
+                });
+              }
+
+              await github.rest.issues.createComment({
+                owner: org,
+                repo,
+                issue_number: issue.number,
+                body: "👋 Thanks for opening this issue! I've added it to the project board automatically."
+              });
+            }
+
+            // --- 3️⃣ AUTO MOVE BASED ON LABELS ---
+            if (context.payload.action === 'labeled' || context.payload.action === 'unlabeled' || context.payload.action === 'closed') {
+              const graphql = github.graphql;
+
+              const projectData = await graphql(`
+                query($org: String!) {
+                  organization(login: $org) {
+                    projectsV2(first: 10) {
+                      nodes { id number title fields(first: 20) { nodes { id name options { id name } } } }
+                    }
+                  }
+                }
+              `, { org });
+
+              const project = projectData.organization.projectsV2.nodes.find(p => p.number === projectNumber);
+              const statusField = project.fields.nodes.find(f => f.name === "Status");
+
+              if (!statusField) {
+                console.log("⚠️ No 'Status' field found on project");
+              } else {
+                let newStatus;
+                if (issue.state === "closed") {
+                  newStatus = statusField.options.find(o => o.name === "Done");
+                } else if (issue.labels.find(l => l.name.toLowerCase().includes("progress"))) {
+                  newStatus = statusField.options.find(o => o.name === "In Progress");
+                } else {
+                  newStatus = statusField.options.find(o => o.name === "To Do");
+                }
+
+                // Find project item ID
+                const projectItems = await graphql(`
+                  query($org: String!, $issueId: ID!) {
+                    organization(login: $org) {
+                      projectsV2(first: 10) {
+                        nodes {
+                          id
+                          items(first: 50) {
+                            nodes { id content { ... on Issue { id number title } } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                `, { org, issueId: issue.node_id });
+
+                const item = projectItems.organization.projectsV2.nodes
+                  .flatMap(p => p.items.nodes)
+                  .find(i => i.content && i.content.number === issue.number);
+
+                if (item && newStatus) {
+                  await graphql(`
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(
+                        input: {
+                          projectId: $projectId,
+                          itemId: $itemId,
+                          fieldId: $fieldId,
+                          value: { singleSelectOptionId: $optionId }
+                        }
+                      ) { clientMutationId }
+                    }
+                  `, {
+                    projectId: project.id,
+                    itemId: item.id,
+                    fieldId: statusField.id,
+                    optionId: newStatus.id
+                  });
+                  console.log(`✅ Moved issue #${issue.number} to ${newStatus.name}`);
+                }
+              }
+            }
+
+            // --- 4️⃣ COMMENTS ON CLOSE ---
+            if (context.payload.action === 'closed') {
+              await github.rest.issues.createComment({
+                owner: org,
+                repo,
+                issue_number: issue.number,
+                body: "✅ Issue closed! Great job finishing this task."
+              });
+            }
