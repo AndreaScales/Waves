@@ -77,4 +77,5 @@ waves/
 🚀 Acknowledgements
 - Inspired by dynamic music visualizations
 - Audio input uses the Web Audio API
+- Created with assistance from ChatGPT
 
